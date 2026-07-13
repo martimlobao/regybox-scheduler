@@ -1,0 +1,107 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+
+import {
+  collectWorkerVars,
+  loadRepoDotEnv,
+  renderWranglerConfig,
+  stripJsoncComments,
+} from "../scripts/render-wrangler-config.mjs";
+
+const template = `{
+  "keep_vars": true,
+  "vars": {
+    "CLASS_MAP": "CrossFit = WOD",
+    "TIMEZONE": "Europe/Lisbon",
+    "LOOKAHEAD_HOURS": "73"
+  },
+  "kv_namespaces": [
+    { "binding": "REGYBOX_STATE" }
+  ]
+}`;
+
+test("renderWranglerConfig strips deploy-button defaults for manual deploys", () => {
+  const rendered = JSON.parse(renderWranglerConfig(template, "test-kv-namespace-id"));
+  assert.equal(rendered.kv_namespaces[0].id, "test-kv-namespace-id");
+  assert.equal(rendered.vars, undefined);
+});
+
+test("stripJsoncComments preserves comment markers inside strings", () => {
+  const parsed = JSON.parse(
+    stripJsoncComments(`{
+      // deployment metadata
+      "$schema": "https://example.test/wrangler.schema.json",
+      "escaped": "quote: \\\" // still a string",
+      "status": "https://worker.example.test/regybox" /* configured route */
+    }`),
+  );
+
+  assert.equal(parsed.$schema, "https://example.test/wrangler.schema.json");
+  assert.equal(parsed.escaped, 'quote: " // still a string');
+  assert.equal(parsed.status, "https://worker.example.test/regybox");
+});
+
+test("renderWranglerConfig injects worker vars from env", () => {
+  const rendered = JSON.parse(
+    renderWranglerConfig(template, "test-kv-namespace-id", {
+      GITHUB_OWNER: "example-owner",
+      CLASS_MAP: "CrossFit = WOD",
+    }),
+  );
+  assert.deepEqual(rendered.vars, {
+    GITHUB_OWNER: "example-owner",
+      CLASS_MAP: "CrossFit = WOD",
+  });
+});
+
+test("collectWorkerVars ignores empty values", () => {
+  assert.deepEqual(
+    collectWorkerVars({
+      GITHUB_OWNER: " example-owner ",
+      GITHUB_REPO: "   ",
+      LOOKAHEAD_HOURS: "73",
+    }),
+    {
+      GITHUB_OWNER: "example-owner",
+      LOOKAHEAD_HOURS: "73",
+    },
+  );
+});
+
+test("renderWranglerConfig rejects a missing namespace id", () => {
+  assert.throws(
+    () => renderWranglerConfig(template, ""),
+    /CF_KV_NAMESPACE_ID is required/,
+  );
+});
+
+test("renderWranglerConfig rejects a template with a pinned namespace", () => {
+  assert.throws(
+    () =>
+      renderWranglerConfig(
+        template.replace('"binding": "REGYBOX_STATE"', '"binding": "REGYBOX_STATE", "id": "old-id"'),
+        "test-kv-namespace-id",
+      ),
+    /unpinned REGYBOX_STATE KV binding/,
+  );
+});
+
+test("loadRepoDotEnv reads cf kv namespace id from repo .env", () => {
+  const repoRoot = mkdtempSync(join(tmpdir(), "regybox-env-"));
+  writeFileSync(join(repoRoot, ".env"), "CF_KV_NAMESPACE_ID=test-namespace-id\n");
+  const previous = process.env.CF_KV_NAMESPACE_ID;
+  delete process.env.CF_KV_NAMESPACE_ID;
+  try {
+    loadRepoDotEnv(repoRoot);
+    assert.equal(process.env.CF_KV_NAMESPACE_ID, "test-namespace-id");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.CF_KV_NAMESPACE_ID;
+    } else {
+      process.env.CF_KV_NAMESPACE_ID = previous;
+    }
+  }
+});
