@@ -3,5 +3,5 @@
   "upstream": "martimlobao/regybox",
   "channel": "main",
   "mode": "auto",
-  "installedCommit": ""
+  "installedCommit": "bc0ff74c85ed7152e7ee79c43b6020c9bc7e28ea"
 }

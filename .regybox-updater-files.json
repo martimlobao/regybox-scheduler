@@ -1,11 +1,10 @@
 {
   "files": [
-    ".dev.vars.example",
-    ".github/workflows/regybox-automatic-updates.yml",
     "bench/calendar-bench.mjs",
     "bun.lock",
     "package.json",
     "scripts/render-wrangler-config.mjs",
+    "scripts/update-deployments.mjs",
     "scripts/update-from-upstream.mjs",
     "src/calendar.js",
     "src/executor.js",
@@ -36,6 +35,7 @@
     "test/regybox.test.js",
     "test/render-wrangler-config.test.mjs",
     "test/status.test.js",
+    "test/update-deployments.test.mjs",
     "test/update-from-upstream.test.mjs",
     "test/worker.test.js",
     "wrangler.jsonc"
