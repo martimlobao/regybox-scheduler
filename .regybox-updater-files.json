@@ -20,6 +20,7 @@
     "test/bookr.test.js",
     "test/calendar-parity.test.js",
     "test/classmap.test.js",
+    "test/coordinator.test.js",
     "test/executor.test.js",
     "test/fixtures/bad_class.html",
     "test/fixtures/closed_starting_soon.html",
